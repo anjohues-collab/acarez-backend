@@ -295,6 +295,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $fecha_ruta = $_POST['fecha_ruta'] ?? date('Y-m-d');
         $destinos_seleccionados = $_POST['destinos'] ?? [];
         
+        // 🔥 NUEVO: Recibir placas y no_economico editables desde el formulario
+        $placas_ruta = trim($_POST['placas_ruta'] ?? '');
+        $no_economico_ruta = trim($_POST['no_economico_ruta'] ?? '');
+        
         if ($chofer_id > 0 && !empty($destinos_seleccionados)) {
             $chofer_sql = "SELECT nombre_chofer, placas, numero_economico FROM choferes WHERE id = $chofer_id AND activo = 1";
             $chofer_result = $conn->query($chofer_sql);
@@ -303,9 +307,17 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             if ($chofer) {
                 $fecha_inicio = $fecha_ruta . ' 00:00:00';
                 
+                // 🔥 NUEVO: Si el usuario no modificó los campos, usar los del chofer como respaldo
+                if (empty($placas_ruta)) {
+                    $placas_ruta = $chofer['placas'];
+                }
+                if (empty($no_economico_ruta)) {
+                    $no_economico_ruta = $chofer['numero_economico'];
+                }
+                
                 $stmt = $conn->prepare("INSERT INTO rutas (numero_ruta, chofer, auxiliar, placas, no_economico, origen, fecha_inicio, km_inicial, estatus) VALUES (?, ?, ?, ?, ?, ?, ?, 0, 'programada')");
                 $origen = 'Pendiente';
-                $stmt->bind_param("sssssss", $numero_ruta, $chofer['nombre_chofer'], $auxiliar_nombre, $chofer['placas'], $chofer['numero_economico'], $origen, $fecha_inicio);
+                $stmt->bind_param("sssssss", $numero_ruta, $chofer['nombre_chofer'], $auxiliar_nombre, $placas_ruta, $no_economico_ruta, $origen, $fecha_inicio);
                 $stmt->execute();
                 $ruta_id = $conn->insert_id;
                 $stmt->close();
@@ -659,6 +671,34 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             cursor: pointer;
             accent-color: #4A148C;
         }
+        .campo-vehiculo {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            min-width: 140px;
+        }
+        .campo-vehiculo label {
+            font-size: 11px;
+            font-weight: bold;
+            color: #4A148C;
+        }
+        .campo-vehiculo input {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background: #f9f9f9;
+        }
+        .campo-vehiculo input:focus {
+            background: #fff;
+            border-color: #4A148C;
+            outline: none;
+        }
+        .nota-vehiculo {
+            font-size: 11px;
+            color: #666;
+            font-style: italic;
+            margin-top: 4px;
+        }
         @media (max-width: 768px) {
             .grid-2col { grid-template-columns: 1fr; }
             #logoFijo { width: 60px; height: 60px; }
@@ -984,7 +1024,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             echo '<div class="success-msg">✅ Ruta eliminada correctamente.</div>';
         }
         
+        // 🔥 NUEVO: Obtener choferes con sus placas y números económicos para el dropdown dinámico
         $choferes = $conn->query("SELECT id, nombre_chofer, placas, numero_economico FROM choferes WHERE activo = 1 ORDER BY nombre_chofer ASC");
+        $choferes_data = [];
+        while ($ch = $choferes->fetch_assoc()) {
+            $choferes_data[] = $ch;
+        }
+        
         $auxiliares_lista = $conn->query("SELECT id, nombre FROM auxiliares WHERE activo = 1 ORDER BY nombre ASC");
         $destinos = $conn->query("SELECT id, razon_social, sucursal, direccion FROM destinos WHERE activo = 1 ORDER BY razon_social ASC");
         
@@ -1003,11 +1049,16 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 <div style="display:flex; flex-direction:column; gap:8px; min-width: 250px;">
                     <input type="text" name="numero_ruta" placeholder="Número de ruta (ej. R-01)" required style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 5px;">
 
-                    <select name="chofer_id" required style="width: 100%;">
+                    <!-- 🔥 NUEVO: Selector de chofer con data attributes para autocompletar -->
+                    <select name="chofer_id" id="choferSelect" required style="width: 100%;" onchange="autocompletarVehiculo()">
                         <option value="">-- Seleccionar Chofer --</option>
-                        <?php while($row = $choferes->fetch_assoc()): ?>
-                            <option value="<?= $row['id'] ?>"><?= htmlspecialchars($row['nombre_chofer']) ?> (<?= $row['placas'] ?>)</option>
-                        <?php endwhile; ?>
+                        <?php foreach($choferes_data as $ch): ?>
+                            <option value="<?= $ch['id'] ?>" 
+                                    data-placas="<?= htmlspecialchars($ch['placas']) ?>" 
+                                    data-no-economico="<?= htmlspecialchars($ch['numero_economico']) ?>">
+                                <?= htmlspecialchars($ch['nombre_chofer']) ?>
+                            </option>
+                        <?php endforeach; ?>
                     </select>
 
                     <select name="auxiliar_nombre" style="width: 100%;">
@@ -1017,10 +1068,25 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                         <?php endwhile; ?>
                     </select>
                 </div>
+
+                <!-- 🔥 NUEVO: Campos editables de placas y número económico -->
+                <div class="campo-vehiculo">
+                    <label for="placas_ruta">🚛 Placas (editable)</label>
+                    <input type="text" name="placas_ruta" id="placas_ruta" placeholder="Placas del vehículo" style="width: 140px;">
+                </div>
+
+                <div class="campo-vehiculo">
+                    <label for="no_economico_ruta">🔢 No. Económico (editable)</label>
+                    <input type="text" name="no_economico_ruta" id="no_economico_ruta" placeholder="Ej: A-01" style="width: 140px;">
+                </div>
                 
                 <input type="date" name="fecha_ruta" value="<?= date('Y-m-d') ?>" required>
                 
                 <button type="submit" class="btn btn-success">➕ Crear Ruta</button>
+                
+                <div style="width: 100%; margin-top: 5px;">
+                    <p class="nota-vehiculo">💡 Al seleccionar un chofer, se cargarán automáticamente sus placas y número económico. Puedes modificarlos si ese día usa otro vehículo. <strong>Esto NO afecta la tabla de choferes.</strong></p>
+                </div>
                 
                 <div style="width: 100%; margin-top: 15px;">
                     <p><strong>Selecciona los destinos para esta ruta:</strong> 
@@ -1403,6 +1469,18 @@ function girarLogoInferior() {
     void logo.offsetWidth; 
     logo.classList.add('girar-logo');
     setTimeout(() => logo.classList.remove('girar-logo'), 5000);
+}
+
+// 🔥 NUEVO: Autocompletar placas y número económico al seleccionar chofer
+function autocompletarVehiculo() {
+    const select = document.getElementById('choferSelect');
+    const opcionSeleccionada = select.options[select.selectedIndex];
+    
+    const placas = opcionSeleccionada.getAttribute('data-placas') || '';
+    const noEconomico = opcionSeleccionada.getAttribute('data-no-economico') || '';
+    
+    document.getElementById('placas_ruta').value = placas;
+    document.getElementById('no_economico_ruta').value = noEconomico;
 }
 
 document.addEventListener('DOMContentLoaded', () => {
