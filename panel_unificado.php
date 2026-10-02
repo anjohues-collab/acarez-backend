@@ -295,7 +295,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $fecha_ruta = $_POST['fecha_ruta'] ?? date('Y-m-d');
         $destinos_seleccionados = $_POST['destinos'] ?? [];
         
-        // 🔥 NUEVO: Recibir placas y no_economico editables desde el formulario
+        // 🔥 Recibir placas y no_economico desde los dropdowns
         $placas_ruta = trim($_POST['placas_ruta'] ?? '');
         $no_economico_ruta = trim($_POST['no_economico_ruta'] ?? '');
         
@@ -307,7 +307,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             if ($chofer) {
                 $fecha_inicio = $fecha_ruta . ' 00:00:00';
                 
-                // 🔥 NUEVO: Si el usuario no modificó los campos, usar los del chofer como respaldo
+                // 🔥 Si el usuario no seleccionó placas o no económico, usar los del chofer como respaldo
                 if (empty($placas_ruta)) {
                     $placas_ruta = $chofer['placas'];
                 }
@@ -675,20 +675,21 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             display: flex;
             flex-direction: column;
             gap: 4px;
-            min-width: 140px;
+            min-width: 160px;
         }
         .campo-vehiculo label {
             font-size: 11px;
             font-weight: bold;
             color: #4A148C;
         }
-        .campo-vehiculo input {
+        .campo-vehiculo select {
             padding: 8px;
             border: 1px solid #ddd;
             border-radius: 5px;
             background: #f9f9f9;
+            cursor: pointer;
         }
-        .campo-vehiculo input:focus {
+        .campo-vehiculo select:focus {
             background: #fff;
             border-color: #4A148C;
             outline: none;
@@ -1024,7 +1025,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             echo '<div class="success-msg">✅ Ruta eliminada correctamente.</div>';
         }
         
-        // 🔥 NUEVO: Obtener choferes con sus placas y números económicos para el dropdown dinámico
+        // 🔥 Obtener choferes con sus placas y números económicos para el dropdown dinámico
         $choferes = $conn->query("SELECT id, nombre_chofer, placas, numero_economico FROM choferes WHERE activo = 1 ORDER BY nombre_chofer ASC");
         $choferes_data = [];
         while ($ch = $choferes->fetch_assoc()) {
@@ -1032,6 +1033,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         }
         
         $auxiliares_lista = $conn->query("SELECT id, nombre FROM auxiliares WHERE activo = 1 ORDER BY nombre ASC");
+        
+        // 🔥 NUEVO: Cargar catálogos de placas y números económicos
+        $catalogo_placas_ruta = $conn->query("SELECT placa FROM catalogo_placas ORDER BY placa ASC");
+        $catalogo_no_economico_ruta = $conn->query("SELECT no_economico FROM catalogo_no_economico ORDER BY no_economico ASC");
+        
         $destinos = $conn->query("SELECT id, razon_social, sucursal, direccion FROM destinos WHERE activo = 1 ORDER BY razon_social ASC");
         
         $filtro_chofer = $_GET['filtro_chofer'] ?? '';
@@ -1049,7 +1055,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 <div style="display:flex; flex-direction:column; gap:8px; min-width: 250px;">
                     <input type="text" name="numero_ruta" placeholder="Número de ruta (ej. R-01)" required style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 5px;">
 
-                    <!-- 🔥 NUEVO: Selector de chofer con data attributes para autocompletar -->
+                    <!-- 🔥 Selector de chofer con data attributes para autocompletar -->
                     <select name="chofer_id" id="choferSelect" required style="width: 100%;" onchange="autocompletarVehiculo()">
                         <option value="">-- Seleccionar Chofer --</option>
                         <?php foreach($choferes_data as $ch): ?>
@@ -1069,15 +1075,25 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     </select>
                 </div>
 
-                <!-- 🔥 NUEVO: Campos editables de placas y número económico -->
+                <!-- 🔥 NUEVO: Dropdowns de placas y número económico basados en catálogos -->
                 <div class="campo-vehiculo">
-                    <label for="placas_ruta">🚛 Placas (editable)</label>
-                    <input type="text" name="placas_ruta" id="placas_ruta" placeholder="Placas del vehículo" style="width: 140px;">
+                    <label for="placas_ruta">🚛 Placas (catálogo)</label>
+                    <select name="placas_ruta" id="placas_ruta" style="width: 160px;">
+                        <option value="">-- Seleccionar placa --</option>
+                        <?php while($cp = $catalogo_placas_ruta->fetch_assoc()): ?>
+                            <option value="<?= htmlspecialchars($cp['placa']) ?>"><?= htmlspecialchars($cp['placa']) ?></option>
+                        <?php endwhile; ?>
+                    </select>
                 </div>
 
                 <div class="campo-vehiculo">
-                    <label for="no_economico_ruta">🔢 No. Económico (editable)</label>
-                    <input type="text" name="no_economico_ruta" id="no_economico_ruta" placeholder="Ej: A-01" style="width: 140px;">
+                    <label for="no_economico_ruta">🔢 No. Económico (catálogo)</label>
+                    <select name="no_economico_ruta" id="no_economico_ruta" style="width: 160px;">
+                        <option value="">-- Seleccionar No. Eco --</option>
+                        <?php while($cne = $catalogo_no_economico_ruta->fetch_assoc()): ?>
+                            <option value="<?= htmlspecialchars($cne['no_economico']) ?>"><?= htmlspecialchars($cne['no_economico']) ?></option>
+                        <?php endwhile; ?>
+                    </select>
                 </div>
                 
                 <input type="date" name="fecha_ruta" value="<?= date('Y-m-d') ?>" required>
@@ -1085,7 +1101,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 <button type="submit" class="btn btn-success">➕ Crear Ruta</button>
                 
                 <div style="width: 100%; margin-top: 5px;">
-                    <p class="nota-vehiculo">💡 Al seleccionar un chofer, se cargarán automáticamente sus placas y número económico. Puedes modificarlos si ese día usa otro vehículo. <strong>Esto NO afecta la tabla de choferes.</strong></p>
+                    <p class="nota-vehiculo">💡 Al seleccionar un chofer, se cargarán automáticamente sus placas y número económico desde el catálogo. Puedes cambiarlos si ese día usa otro vehículo. <strong>Esto NO afecta la tabla de choferes.</strong></p>
                 </div>
                 
                 <div style="width: 100%; margin-top: 15px;">
@@ -1471,7 +1487,7 @@ function girarLogoInferior() {
     setTimeout(() => logo.classList.remove('girar-logo'), 5000);
 }
 
-// 🔥 NUEVO: Autocompletar placas y número económico al seleccionar chofer
+// 🔥 Autocompletar placas y número económico al seleccionar chofer (basado en catálogos)
 function autocompletarVehiculo() {
     const select = document.getElementById('choferSelect');
     const opcionSeleccionada = select.options[select.selectedIndex];
@@ -1479,8 +1495,56 @@ function autocompletarVehiculo() {
     const placas = opcionSeleccionada.getAttribute('data-placas') || '';
     const noEconomico = opcionSeleccionada.getAttribute('data-no-economico') || '';
     
-    document.getElementById('placas_ruta').value = placas;
-    document.getElementById('no_economico_ruta').value = noEconomico;
+    const selectPlacas = document.getElementById('placas_ruta');
+    const selectNoEco = document.getElementById('no_economico_ruta');
+    
+    // Buscar la opción que coincida con la placa del chofer
+    let placaEncontrada = false;
+    for (let i = 0; i < selectPlacas.options.length; i++) {
+        if (selectPlacas.options[i].value === placas) {
+            selectPlacas.selectedIndex = i;
+            placaEncontrada = true;
+            break;
+        }
+    }
+    // Si la placa del chofer no está en el catálogo, agregarla temporalmente
+    if (!placaEncontrada && placas !== '') {
+        // Eliminar opciones temporales anteriores
+        for (let i = selectPlacas.options.length - 1; i >= 0; i--) {
+            if (selectPlacas.options[i].textContent.includes('(del chofer)')) {
+                selectPlacas.remove(i);
+            }
+        }
+        const nuevaOpcion = document.createElement('option');
+        nuevaOpcion.value = placas;
+        nuevaOpcion.textContent = placas + ' (del chofer)';
+        nuevaOpcion.selected = true;
+        selectPlacas.appendChild(nuevaOpcion);
+    }
+    
+    // Buscar la opción que coincida con el número económico del chofer
+    let noEcoEncontrado = false;
+    for (let i = 0; i < selectNoEco.options.length; i++) {
+        if (selectNoEco.options[i].value === noEconomico) {
+            selectNoEco.selectedIndex = i;
+            noEcoEncontrado = true;
+            break;
+        }
+    }
+    // Si el número económico del chofer no está en el catálogo, agregarlo temporalmente
+    if (!noEcoEncontrado && noEconomico !== '') {
+        // Eliminar opciones temporales anteriores
+        for (let i = selectNoEco.options.length - 1; i >= 0; i--) {
+            if (selectNoEco.options[i].textContent.includes('(del chofer)')) {
+                selectNoEco.remove(i);
+            }
+        }
+        const nuevaOpcion = document.createElement('option');
+        nuevaOpcion.value = noEconomico;
+        nuevaOpcion.textContent = noEconomico + ' (del chofer)';
+        nuevaOpcion.selected = true;
+        selectNoEco.appendChild(nuevaOpcion);
+    }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
