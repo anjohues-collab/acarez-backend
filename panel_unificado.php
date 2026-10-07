@@ -104,7 +104,7 @@ if ($accion == 'get_ruta_data' && !empty($_GET['ruta_id'])) {
         $gastos[] = $g;
     }
 
-    $sql_lista_cucas = "SELECT id, parada_id, numero_cuca, select observaciones, foto_cuca, fecha FROM cucas WHERE ruta_id = $ruta_id ORDER BY id ASC";
+    $sql_lista_cucas = "SELECT id, parada_id, numero_cuca, observaciones, foto_cuca, fecha FROM cucas WHERE ruta_id = $ruta_id ORDER BY id ASC";
     $res_lista_cucas = $conn->query($sql_lista_cucas);
     $cucas = [];
     while ($c = $res_lista_cucas->fetch_assoc()) {
