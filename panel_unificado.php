@@ -104,7 +104,7 @@ if ($accion == 'get_ruta_data' && !empty($_GET['ruta_id'])) {
         $gastos[] = $g;
     }
 
-    $sql_lista_cucas = "SELECT id, parada_id, numero_cuca, observaciones, foto_cuca, fecha FROM cucas WHERE ruta_id = $ruta_id ORDER BY id ASC";
+    $sql_lista_cucas = "SELECT id, parada_id, numero_cuca, select observaciones, foto_cuca, fecha FROM cucas WHERE ruta_id = $ruta_id ORDER BY id ASC";
     $res_lista_cucas = $conn->query($sql_lista_cucas);
     $cucas = [];
     while ($c = $res_lista_cucas->fetch_assoc()) {
@@ -675,10 +675,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             display: flex;
             flex-direction: column;
             gap: 4px;
-            min-width: 160px;
         }
         .campo-vehiculo label {
-            font-size: 11px;
+            font-size: 12px;
             font-weight: bold;
             color: #4A148C;
         }
@@ -688,6 +687,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             border-radius: 5px;
             background: #f9f9f9;
             cursor: pointer;
+            width: 100%;
         }
         .campo-vehiculo select:focus {
             background: #fff;
@@ -1050,61 +1050,77 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         
         <div class="card">
             <h2>➕ Crear Nueva Ruta</h2>
-            <form method="POST" class="form-inline" style="flex-wrap: wrap; gap: 10px;">
+            <form method="POST" style="display: flex; flex-direction: column; gap: 15px; margin-top: 15px;">
                 <input type="hidden" name="crear_ruta" value="1">
-                <div style="display:flex; flex-direction:column; gap:8px; min-width: 250px;">
-                    <input type="text" name="numero_ruta" placeholder="Número de ruta (ej. R-01)" required style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 5px;">
-
-                    <!-- 🔥 Selector de chofer con data attributes para autocompletar -->
-                    <select name="chofer_id" id="choferSelect" required style="width: 100%;" onchange="autocompletarVehiculo()">
-                        <option value="">-- Seleccionar Chofer --</option>
-                        <?php foreach($choferes_data as $ch): ?>
-                            <option value="<?= $ch['id'] ?>" 
-                                    data-placas="<?= htmlspecialchars($ch['placas']) ?>" 
-                                    data-no-economico="<?= htmlspecialchars($ch['numero_economico']) ?>">
-                                <?= htmlspecialchars($ch['nombre_chofer']) ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-
-                    <select name="auxiliar_nombre" style="width: 100%;">
-                        <option value="">-- Sin Auxiliar / Opcional --</option>
-                        <?php while($aux = $auxiliares_lista->fetch_assoc()): ?>
-                            <option value="<?= htmlspecialchars($aux['nombre']) ?>"><?= htmlspecialchars($aux['nombre']) ?></option>
-                        <?php endwhile; ?>
-                    </select>
-                </div>
-
-                <!-- 🔥 NUEVO: Dropdowns de placas y número económico basados en catálogos -->
-                <div class="campo-vehiculo">
-                    <label for="placas_ruta">🚛 Placas (catálogo)</label>
-                    <select name="placas_ruta" id="placas_ruta" style="width: 160px;">
-                        <option value="">-- Seleccionar placa --</option>
-                        <?php while($cp = $catalogo_placas_ruta->fetch_assoc()): ?>
-                            <option value="<?= htmlspecialchars($cp['placa']) ?>"><?= htmlspecialchars($cp['placa']) ?></option>
-                        <?php endwhile; ?>
-                    </select>
-                </div>
-
-                <div class="campo-vehiculo">
-                    <label for="no_economico_ruta">🔢 No. Económico (catálogo)</label>
-                    <select name="no_economico_ruta" id="no_economico_ruta" style="width: 160px;">
-                        <option value="">-- Seleccionar No. Eco --</option>
-                        <?php while($cne = $catalogo_no_economico_ruta->fetch_assoc()): ?>
-                            <option value="<?= htmlspecialchars($cne['no_economico']) ?>"><?= htmlspecialchars($cne['no_economico']) ?></option>
-                        <?php endwhile; ?>
-                    </select>
-                </div>
                 
-                <input type="date" name="fecha_ruta" value="<?= date('Y-m-d') ?>" required>
-                
-                <button type="submit" class="btn btn-success">➕ Crear Ruta</button>
+                <!-- 🔥 NUEVO: Layout en Grid para alinear todo uniformemente -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; align-items: flex-end;">
+                    
+                    <div style="display:flex; flex-direction:column; gap:4px;">
+                        <label style="font-size:12px; font-weight:bold; color:#4A148C;">📌 Número de Ruta:</label>
+                        <input type="text" name="numero_ruta" placeholder="Ej. R-01" required style="padding: 8px; border: 1px solid #ddd; border-radius: 5px;">
+                    </div>
+
+                    <div style="display:flex; flex-direction:column; gap:4px;">
+                        <label style="font-size:12px; font-weight:bold; color:#4A148C;">👤 Chofer:</label>
+                        <select name="chofer_id" id="choferSelect" required style="padding: 8px; border: 1px solid #ddd; border-radius: 5px;" onchange="autocompletarVehiculo()">
+                            <option value="">-- Seleccionar Chofer --</option>
+                            <?php foreach($choferes_data as $ch): ?>
+                                <option value="<?= $ch['id'] ?>" 
+                                        data-placas="<?= htmlspecialchars($ch['placas']) ?>" 
+                                        data-no-economico="<?= htmlspecialchars($ch['numero_economico']) ?>">
+                                    <?= htmlspecialchars($ch['nombre_chofer']) ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+
+                    <div class="campo-vehiculo">
+                        <label for="placas_ruta">🚛 Placas (catálogo)</label>
+                        <select name="placas_ruta" id="placas_ruta">
+                            <option value="">-- Seleccionar placa --</option>
+                            <?php while($cp = $catalogo_placas_ruta->fetch_assoc()): ?>
+                                <option value="<?= htmlspecialchars($cp['placa']) ?>"><?= htmlspecialchars($cp['placa']) ?></option>
+                            <?php endwhile; ?>
+                        </select>
+                    </div>
+
+                    <div class="campo-vehiculo">
+                        <label for="no_economico_ruta">🔢 No. Económico</label>
+                        <select name="no_economico_ruta" id="no_economico_ruta">
+                            <option value="">-- Seleccionar No. Eco --</option>
+                            <?php while($cne = $catalogo_no_economico_ruta->fetch_assoc()): ?>
+                                <option value="<?= htmlspecialchars($cne['no_economico']) ?>"><?= htmlspecialchars($cne['no_economico']) ?></option>
+                            <?php endwhile; ?>
+                        </select>
+                    </div>
+
+                    <div style="display:flex; flex-direction:column; gap:4px;">
+                        <label style="font-size:12px; font-weight:bold; color:#4A148C;">🤝 Auxiliar (Opcional):</label>
+                        <select name="auxiliar_nombre" style="padding: 8px; border: 1px solid #ddd; border-radius: 5px;">
+                            <option value="">-- Sin Auxiliar --</option>
+                            <?php while($aux = $auxiliares_lista->fetch_assoc()): ?>
+                                <option value="<?= htmlspecialchars($aux['nombre']) ?>"><?= htmlspecialchars($aux['nombre']) ?></option>
+                            <?php endwhile; ?>
+                        </select>
+                    </div>
+
+                    <div style="display:flex; flex-direction:column; gap:4px;">
+                        <label style="font-size:12px; font-weight:bold; color:#4A148C;">📅 Fecha de Ruta:</label>
+                        <input type="date" name="fecha_ruta" value="<?= date('Y-m-d') ?>" required style="padding: 8px; border: 1px solid #ddd; border-radius: 5px;">
+                    </div>
+
+                    <div style="display:flex; align-items:flex-end;">
+                        <button type="submit" class="btn btn-success" style="width: 100%; height: 35px; margin: 0;">➕ Crear Ruta</button>
+                    </div>
+
+                </div>
                 
                 <div style="width: 100%; margin-top: 5px;">
                     <p class="nota-vehiculo">💡 Al seleccionar un chofer, se cargarán automáticamente sus placas y número económico desde el catálogo. Puedes cambiarlos si ese día usa otro vehículo. <strong>Esto NO afecta la tabla de choferes.</strong></p>
                 </div>
                 
-                <div style="width: 100%; margin-top: 15px;">
+                <div style="width: 100%; margin-top: 10px;">
                     <p><strong>Selecciona los destinos para esta ruta:</strong> 
                     <span style="color:#666; font-size:12px;">(marca los clientes en el orden que debe visitarlos el chofer)</span></p>
                     
