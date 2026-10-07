@@ -1,49 +1,30 @@
 <?php
-// Cargar variables de entorno del servidor
-$host     = getenv('MYSQLHOST') ?: 'localhost';
-$port     = getenv('MYSQLPORT') ?: '3306';
-$dbname   = getenv('MYSQLDATABASE') ?: 'acarez_logistica';
-$user     = getenv('MYSQLUSER') ?: 'root';
+// Permite acceso desde cualquier lugar (CORS) - Útil para la app
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type, Authorization');
+
+// Railway inyecta estas variables automáticamente cuando creas una base de datos MySQL
+$host = getenv('MYSQLHOST') ?: 'localhost'; // Si no está en Railway, usa localhost
+$port = getenv('MYSQLPORT') ?: '3306';
+$dbname = getenv('MYSQLDATABASE') ?: 'tu_base_local'; // Cambia esto si pruebas en XAMPP
+$username = getenv('MYSQLUSER') ?: 'root';
 $password = getenv('MYSQLPASSWORD') ?: '';
 
-// Establecer zona horaria en PHP (-06:00 para México)[cite: 5]
-date_default_timezone_set('America/Mexico_City');
-
-// 1. CREAR CONEXIÓN MYSQLI (Para tus scripts existentes)[cite: 5]
-$conn = new mysqli($host, $user, $password, $dbname, (int)$port);
-
-// Validar fallos de conexión MySQLi[cite: 5]
-if ($conn->connect_error) {
-    http_response_code(500);
-    header('Content-Type: application/json');
-    die(json_encode([
-        'success' => false,
-        'mensaje' => 'Error de conexión a la base de datos (MySQLi): ' . $conn->connect_error
-    ]));
-}
-
-// Establecer caracteres UTF-8 y zona horaria en MySQLi[cite: 5]
-$conn->set_charset("utf8mb4");
-$conn->query("SET time_zone = '-06:00'");
-
-
-// 2. CREAR CONEXIÓN PDO (Para los nuevos scripts de login y gestión de usuarios)
 try {
+    // Crear la conexión PDO
     $dsn = "mysql:host=$host;port=$port;dbname=$dbname;charset=utf8mb4";
-    $options = [
-        PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
-        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-    ];
+    $pdo = new PDO($dsn, $username, $password);
     
-    $pdo = new PDO($dsn, $user, $password, $options);
-    $pdo->exec("SET time_zone = '-06:00'");
-
-} catch (\PDOException $e) {
-    http_response_code(500);
-    header('Content-Type: application/json');
+    // Configurar PDO para que lance excepciones en caso de error
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+    
+} catch (PDOException $e) {
+    // Si falla, detiene todo y muestra el error en formato JSON
     die(json_encode([
-        'success' => false,
-        'mensaje' => 'Error de conexión a la base de datos (PDO): ' . $e->getMessage()
+        'success' => false, 
+        'mensaje' => 'Error de conexión a la BD: ' . $e->getMessage()
     ]));
 }
 ?>
